@@ -14,6 +14,18 @@ GEN = 0
 
 # Fonts
 STAT_FONT = pygame.font.Font(pygame.font.get_default_font(), 30)
+GEN_FONT = pygame.font.Font(pygame.font.get_default_font(), 20)
+
+
+# Sounds
+pygame.mixer.init()
+flap_sound = pygame.mixer.Sound('audio/wing.wav')
+death_sound = pygame.mixer.Sound('audio/hit.wav')
+score_sound = pygame.mixer.Sound('audio/point.wav')
+pygame.mixer.Sound.set_volume(flap_sound, 0.1)
+pygame.mixer.Sound.set_volume(death_sound, 0.1)
+pygame.mixer.Sound.set_volume(score_sound, 0.1)
+
 
 # Load images
 BIRD_IMGS = [pygame.transform.scale2x(pygame.image.load(os.path.join("imgs", "bird1.png"))),
@@ -44,6 +56,7 @@ class Bird:
         self.vel = -10.5
         self.tick_count = 0
         self.height = self.y
+        pygame.mixer.Sound.play(flap_sound)
 
     def move(self):
         self.tick_count += 1
@@ -168,14 +181,14 @@ def draw_window(win, birds, pipes, base, score, gen):
     for pipe in pipes:
         pipe.draw(win)
 
-    text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+    text = STAT_FONT.render("Score: " + str(score), 1, (0, 0, 0))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-    text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
+    text = GEN_FONT.render("Generation: " + str(gen), 1, (255, 255, 255))
     win.blit(text, (10, 10))
 
-    text = STAT_FONT.render("Pop: " + str(len(birds)), 1, (255, 255, 255))
-    win.blit(text, (10, 60))
+    text = GEN_FONT.render("Population: " + str(len(birds)), 1, (255, 255, 255))
+    win.blit(text, (10, 45))
 
     base.draw(win)
 
@@ -212,6 +225,7 @@ def main(genomes, config):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+                pygame.mixer.quit()
                 pygame.quit()
                 quit()
 
@@ -223,7 +237,7 @@ def main(genomes, config):
             run = False
             break
 
-        if score >= 500:
+        if score >= 300:
             run = False
             break
 
@@ -241,6 +255,8 @@ def main(genomes, config):
         for pipe in pipes:
             for x, bird in enumerate(birds):
                 if pipe.collide(bird):
+                    pygame.mixer.stop()
+                    pygame.mixer.Sound.play(death_sound)
                     ge[x].fitness -= 5
                     birds.pop(x)
                     nets.pop(x)
@@ -257,6 +273,8 @@ def main(genomes, config):
 
         if add_pipe:
             score += 1
+            pygame.mixer.stop()
+            pygame.mixer.Sound.play(score_sound)
             for g in ge:
                 g.fitness += 0.1
             pipes.append(Pipe(700))
@@ -265,7 +283,9 @@ def main(genomes, config):
             pipes.remove(r)
 
         for x, bird in enumerate(birds):
-            if bird.y + bird.img.get_height() >= 730 or bird.y < 0:
+            if bird.y + bird.img.get_height() >= 730 or bird.y <= 0:
+                pygame.mixer.stop()
+                pygame.mixer.Sound.play(death_sound)
                 birds.pop(x)
                 nets.pop(x)
                 ge.pop(x)
