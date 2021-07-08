@@ -1,21 +1,27 @@
-import pygame
-import neat
 import os
 import random
-import time
+
+import neat
+import pygame
 
 pygame.font.init()
 
 # Setup display
 WIN_WIDTH = 500
 WIN_HEIGHT = 800
+pygame.display.set_caption("AI Flappy Bird")
+fps = 30
+highscore_file = open("highscore.dat", 'r')
+highscore = int(highscore_file.readline())
+highscore_file.close()
+muted = False
 
 GEN = 0
 
 # Fonts
 STAT_FONT = pygame.font.Font(pygame.font.get_default_font(), 30)
 GEN_FONT = pygame.font.Font(pygame.font.get_default_font(), 20)
-
+MUTED_FONT = pygame.font.Font(pygame.font.get_default_font(), 80)
 
 # Sounds
 pygame.mixer.init()
@@ -176,58 +182,117 @@ class Base:
 
 
 def draw_window(win, birds, pipes, base, score, gen):
+    global fps, highscore, muted
     win.blit(BG_IMG, (0, 0))
+    fps_str = ""
 
     for pipe in pipes:
         pipe.draw(win)
 
-    text = STAT_FONT.render("Score: " + str(score), 1, (0, 0, 0))
+    text = STAT_FONT.render("Score: " + str(score), True, (0, 0, 0))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
-    text = GEN_FONT.render("Generation: " + str(gen), 1, (255, 255, 255))
-    win.blit(text, (10, 10))
+    if fps == 30:
+        fps_str = "1x"
+        text = GEN_FONT.render("Spd: " + fps_str, True, (255, 255, 255))
+        win.blit(text, (10, 10))
+    elif fps > 30 and fps == 60:
+        fps_str = "2x"
+        text = GEN_FONT.render("Spd: " + fps_str, True, (255, 255, 255))
+        win.blit(text, (10, 10))
+    elif fps > 30 and fps == 90:
+        fps_str = "3x"
+        text = GEN_FONT.render("Spd: " + fps_str, True, (255, 255, 255))
+        win.blit(text, (10, 10))
+    elif fps > 30 and fps == 120:
+        fps_str = "4x"
+        text = GEN_FONT.render("Spd: " + fps_str, True, (255, 255, 255))
+        win.blit(text, (10, 10))
 
-    text = GEN_FONT.render("Population: " + str(len(birds)), 1, (255, 255, 255))
+    text = GEN_FONT.render("Generation: " + str(gen), True, (255, 255, 255))
     win.blit(text, (10, 45))
+
+    text = GEN_FONT.render("Population: " + str(len(birds)), True, (255, 255, 255))
+    win.blit(text, (10, 80))
+
+    text = GEN_FONT.render("Highscore: " + str(highscore), True, (255, 255, 255))
+    win.blit(text, (10, 115))
 
     base.draw(win)
 
     for bird in birds:
-         bird.draw(win)
+        bird.draw(win)
+
+    text = GEN_FONT.render("Use [ and ] to change speed", True, (0, 0, 0))
+    win.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, WIN_HEIGHT - 60))
+
+    if muted:
+        text = MUTED_FONT.render("Muted", True, (255, 0, 0))
+        win.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2,
+                        WIN_HEIGHT / 2 - text.get_height() / 2))
+    text = GEN_FONT.render("Press 'm' to mute", True, (0, 0, 0))
+    win.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, WIN_HEIGHT - 30))
+
     pygame.display.update()
 
 
 def main(genomes, config):
-    global GEN
+    global GEN, fps, highscore, muted
     GEN += 1
     nets = []
     ge = []
     birds = []
 
-    for _, g in genomes:
-        net = neat.nn.FeedForwardNetwork.create(g, config)
+    for _, genome in genomes:
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
         nets.append(net)
         birds.append(Bird(230, 350))
-        g.fitness = 0
-        ge.append(g)
+        genome.fitness = 0
+        ge.append(genome)
 
+    score = 0
 
     base = Base(730)
     pipes = [Pipe(700)]
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
     clock = pygame.time.Clock()
 
-    score = 0
-
     run = True
     while run:
-        clock.tick(30)
+        clock.tick(fps)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                highscore_file = open("highscore.dat", 'w')
+                highscore_file.write(str(highscore))
+                highscore_file.close()
                 run = False
                 pygame.mixer.quit()
                 pygame.quit()
                 quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFTBRACKET:
+                    fps -= 30
+                if event.key == pygame.K_RIGHTBRACKET:
+                    fps += 30
+                if event.key == pygame.K_m:
+                    if not muted:
+                        pygame.mixer.Sound.set_volume(flap_sound, 0.0)
+                        pygame.mixer.Sound.set_volume(death_sound, 0.0)
+                        pygame.mixer.Sound.set_volume(score_sound, 0.0)
+                        muted = not muted
+                    else:
+                        pygame.mixer.Sound.set_volume(flap_sound, 0.1)
+                        pygame.mixer.Sound.set_volume(death_sound, 0.1)
+                        pygame.mixer.Sound.set_volume(score_sound, 0.1)
+                        muted = not muted
+
+        if fps > 120:
+            fps = 120
+        if fps < 30:
+            fps = 30
+
+        if score > highscore:
+            highscore = score
 
         pipe_ind = 0
         if len(birds) > 0:
@@ -237,15 +302,16 @@ def main(genomes, config):
             run = False
             break
 
-        if score >= 300:
-            run = False
-            break
+        # if score >= 300:
+        #     run = False
+        #     break
 
         for x, bird in enumerate(birds):
             bird.move()
-            ge[x].fitness += 0.001
+            ge[x].fitness += 1
 
-            output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom)))
+            output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height),
+                                       abs(bird.y - pipes[pipe_ind].bottom)))
 
             if output[0] > 0.5:
                 bird.jump()
@@ -257,7 +323,7 @@ def main(genomes, config):
                 if pipe.collide(bird):
                     pygame.mixer.stop()
                     pygame.mixer.Sound.play(death_sound)
-                    ge[x].fitness -= 5
+                    ge[x].fitness -= 1
                     birds.pop(x)
                     nets.pop(x)
                     ge.pop(x)
@@ -276,7 +342,7 @@ def main(genomes, config):
             pygame.mixer.stop()
             pygame.mixer.Sound.play(score_sound)
             for g in ge:
-                g.fitness += 0.1
+                g.fitness += 1
             pipes.append(Pipe(700))
 
         for r in rem:
@@ -305,6 +371,7 @@ def run(config_path):
     p.add_reporter(stats)
 
     winner = p.run(main)
+
 
 if __name__ == "__main__":
     local_dir = os.path.dirname(__file__)
