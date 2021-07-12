@@ -212,7 +212,7 @@ def draw_window(win, birds, pipes, base, score, gen):
     text = GEN_FONT.render("Generation: " + str(gen), True, (255, 255, 255))
     win.blit(text, (10, 45))
 
-    text = GEN_FONT.render("Population: " + str(len(birds)), True, (255, 255, 255))
+    text = GEN_FONT.render("Alive: " + str(len(birds)), True, (255, 255, 255))
     win.blit(text, (10, 80))
 
     text = GEN_FONT.render("Highscore: " + str(highscore), True, (255, 255, 255))
@@ -371,6 +371,14 @@ def run(config_path):
     p.add_reporter(stats)
 
     winner = p.run(main)
+
+    # node_names = {-1: 'A', -2: 'B', 0: 'A XOR B'}
+    # visualize.draw_net(config, winner, True, node_names=node_names)
+    # visualize.plot_stats(stats, ylog=False, view=True)
+    #
+    # visualize.plot_species(stats, view=True)
+    #
+    # neat.statistics.StatisticsReporter.
 
 
 if __name__ == "__main__":
